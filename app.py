@@ -25,26 +25,39 @@ HTML_FORM = """
 @app.route("/", methods=["GET"])
 def index():
     return render_template_string(HTML_FORM)
-
 @app.route("/resize", methods=["POST"])
 def resize_pdf():
-    uploaded_file = request.files['pdf']
-    zoom_factor = float(request.form.get('zoom', 0.5))
+    try:
+        if 'pdf' not in request.files:
+            return "No PDF file part", 400
 
-    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-    new_pdf = fitz.open()
+        uploaded_file = request.files['pdf']
+        if uploaded_file.filename == '':
+            return "No selected file", 400
 
-    for page in doc:
-        mat = fitz.Matrix(zoom_factor, zoom_factor)
-        pix = page.get_pixmap(matrix=mat)
-        img_pdf = fitz.open("pdf", pix.tobytes("pdf"))
-        new_pdf.insert_pdf(img_pdf)
+        try:
+            zoom_factor = float(request.form.get('zoom', 0.5))
+        except ValueError:
+            return "Zoom must be a number", 400
 
-    output = io.BytesIO()
-    new_pdf.save(output)
-    output.seek(0)
+        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        new_pdf = fitz.open()
 
-    return send_file(output, as_attachment=True, download_name="resized.pdf", mimetype="application/pdf")
+        for page in doc:
+            mat = fitz.Matrix(zoom_factor, zoom_factor)
+            pix = page.get_pixmap(matrix=mat)
+            img_pdf = fitz.open("pdf", pix.tobytes("pdf"))
+            new_pdf.insert_pdf(img_pdf)
+
+        output = io.BytesIO()
+        new_pdf.save(output)
+        output.seek(0)
+
+        return send_file(output, as_attachment=True, download_name="resized.pdf", mimetype="application/pdf")
+    
+    except Exception as e:
+        return f"Error: {str(e)}", 500
+
 
 if __name__ == "__main__":
     import os
