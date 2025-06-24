@@ -40,24 +40,32 @@ def resize_pdf():
         except ValueError:
             return "Zoom must be a number", 400
 
+        # Open the original PDF
         doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-        new_pdf = fitz.open()
+        output_pdf = fitz.open()
 
         for page in doc:
-            mat = fitz.Matrix(zoom_factor, zoom_factor)
-            pix = page.get_pixmap(matrix=mat)
-            img_pdf = fitz.open("pdf", pix.tobytes("pdf"))
-            new_pdf.insert_pdf(img_pdf)
+            # Create a new PDF page with scaled dimensions
+            rect = page.rect
+            new_width = rect.width * zoom_factor
+            new_height = rect.height * zoom_factor
+            new_page = output_pdf.new_page(width=new_width, height=new_height)
+
+            # Draw the original content scaled
+            new_page.show_pdf_page(
+                new_page.rect, doc, page.number
+            )
 
         output = io.BytesIO()
-        new_pdf.save(output)
+        output_pdf.save(output)
         output.seek(0)
 
         return send_file(output, as_attachment=True, download_name="resized.pdf", mimetype="application/pdf")
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return f"Error: {str(e)}", 500
-
 
 if __name__ == "__main__":
     import os
